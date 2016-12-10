@@ -1,7 +1,12 @@
+#![feature(proc_macro)]
 extern crate iron;
 extern crate iron_pipeline;
 extern crate router;
-extern crate rustc_serialize;
+extern crate hyper;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
 
 use iron::prelude::*;
 use iron::status;
@@ -9,7 +14,7 @@ use iron::mime::Mime;
 use iron_pipeline::prelude::*;
 use iron_pipeline::{Middleware, PipelineNext};
 use router::Router;
-use rustc_serialize::json;
+use serde_json::Map;
 
 struct Logging;
 impl Middleware for Logging {
@@ -38,7 +43,7 @@ impl Middleware for NotFound {
 	}
 }
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct OverviewData {
 	vcpu_total: u32,
 	vcpu_in_use: u32,
@@ -55,7 +60,7 @@ fn overview(_: &mut Request) -> IronResult<Response> {
 	};
 
 	let m: Mime = "application/json".parse().unwrap();
-	Ok(Response::with((status::Ok, m, json::encode(&data).unwrap())))
+	Ok(Response::with((status::Ok, m, serde_json::to_string(&data).unwrap())))
 }
 
 fn main() {
@@ -68,5 +73,5 @@ fn main() {
     pipeline.add(NotFound);
     pipeline.add(router);
 
-    Iron::new(pipeline).http("localhost:3000").unwrap();
+    Iron::new(pipeline).http("0.0.0.0:3000").unwrap();
 }

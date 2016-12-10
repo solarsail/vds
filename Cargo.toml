@@ -6,5 +6,11 @@ authors = ["solarsail <newleaf.lu@gmail.com>"]
 [dependencies]
 iron = "*"
 router = "*"
-rustc-serialize = "*"
 iron-pipeline = { git = "https://github.com/deadalusai/iron-pipeline" }
+serde = "0.8"
+serde_json = "0.8"
+serde_derive = "0.8"
+
+[dependencies.hyper]
+version = "0.9"
+default-features = false
