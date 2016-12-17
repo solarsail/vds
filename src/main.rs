@@ -14,7 +14,8 @@ use iron::mime::Mime;
 use iron_pipeline::prelude::*;
 use iron_pipeline::{Middleware, PipelineNext};
 use router::Router;
-use serde_json::Map;
+
+mod handler;
 
 struct Logging;
 impl Middleware for Logging {
@@ -68,6 +69,7 @@ fn main() {
 
     let mut router = Router::new();
     router.get("/overview", overview, "overview");
+    router.post("/token", handler::identity::login, "token");
 
     pipeline.add(Logging);
     pipeline.add(NotFound);
