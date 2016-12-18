@@ -49,8 +49,10 @@ pub fn token(req: &mut Request) -> IronResult<Response> {
         }
     };
 
-    let client = Client::new();
-    let mut res = client.post("http://192.168.1.21:5000/v3/auth/tokens").body(&serde_json::to_string(&token_req).unwrap()).send().unwrap();
+    let mut res = Client::new()
+                   .post("http://192.168.1.21:5000/v3/auth/tokens")
+                   .body(&serde_json::to_string(&token_req).unwrap())
+                   .send().unwrap();
     let mime = http_object::json_mime();
     let mut res_str = String::new();
     res.read_to_string(&mut res_str).unwrap();

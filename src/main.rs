@@ -49,15 +49,28 @@ impl Middleware for NotFound {
 	}
 }
 
+struct TokenCheck;
+impl Middleware for TokenCheck {
+    fn process(&self, req: &mut Request, next: PipelineNext) -> IronResult<Response> {
+        if let Some(_) = req.headers.get::<http_object::AuthToken>() {
+            next.process(req)
+        } else {
+            Ok(Response::with((status::BadRequest, "token needed")))
+        }
+    }
+}
+
 fn main() {
     let mut pipeline = Pipeline::new();
 
     let mut router = Router::new();
     router.get("/usage/:project_id", handler::compute::usage, "usage");
+    router.get("/all_vms", handler::compute::all_vms, "all_vms");
     router.post("/token", handler::identity::token, "token");
 
     pipeline.add(Logging);
     pipeline.add(NotFound);
+    pipeline.add(TokenCheck);
     pipeline.add(router);
 
     Iron::new(pipeline).http("0.0.0.0:3000").unwrap();
