@@ -1,68 +1,52 @@
+use std::io::Read;
+use std::fmt;
+
 use iron::prelude::*;
 use iron::modifiers;
+
 use hyper;
 use hyper::Client;
 use hyper::header::{Header, HeaderFormat};
-use std::io::Read;
-use std::fmt;
+
 use iron::mime::Mime;
 use iron::status;
+
 use serde_json;
 use serde_json::Value;
 
+use json_object;
+
+
 #[derive(Debug, Clone)]
-struct Token(String);
-impl Header for Token {
+struct AuthToken(String);
+impl Header for AuthToken {
     fn header_name() -> &'static str {
         "X-Subject-Token"
     }
 
-    fn parse_header(raw: &[Vec<u8>]) -> hyper::Result<Token> {
+    fn parse_header(raw: &[Vec<u8>]) -> hyper::Result<AuthToken> {
         if raw.len() == 1 {
-            Ok(Token(String::from_utf8(raw[0].clone()).unwrap()))
+            Ok(AuthToken(String::from_utf8(raw[0].clone()).unwrap()))
         } else {
             Err(hyper::Error::Header)
         }
     }
 }
 
-impl HeaderFormat for Token {
+impl HeaderFormat for AuthToken {
     fn fmt_header(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.0)
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct Domain {
-    id: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct User {
-    name: String,
-    domain: Domain,
-    password: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Password {
-    user: User
-}
-
-#[derive(Serialize, Deserialize)]
-struct Identity {
-    methods: Vec<String>,
-    password: Password,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Auth {
-    identity: Identity,
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct TokenRequest {
-    auth: Auth,
+    auth: json_object::Auth,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TokenResponse {
+    token: json_object::Token,
 }
 
 pub fn login(req: &mut Request) -> IronResult<Response> {
@@ -72,15 +56,17 @@ pub fn login(req: &mut Request) -> IronResult<Response> {
     let data = data.as_object().unwrap();
     // make json
     let token_req = TokenRequest {
-        auth: Auth {
-            identity: Identity {
+        auth: json_object::Auth {
+            identity: json_object::Identity {
                 methods: vec!["password".to_string()],
-                password: Password {
-                    user: User {
+                password: json_object::Password {
+                    user: json_object::User {
+                        id: String::new(),
                         name: data.get("username").unwrap().as_str().unwrap().to_string(),
                         password: data.get("password").unwrap().as_str().unwrap().to_string(),
-                        domain: Domain {
+                        domain: json_object::Domain {
                             id: "default".to_string(),
+                            name: String::new(),
                         }
                     }
                 }
@@ -93,6 +79,12 @@ pub fn login(req: &mut Request) -> IronResult<Response> {
     let mime: Mime = "application/json".parse().unwrap();
     let mut res_str = String::new();
     res.read_to_string(&mut res_str).unwrap();
-    let token = res.headers.get::<Token>().unwrap();
-    Ok(Response::with((status::Ok, mime, modifiers::Header(token.clone()), res_str)))
+    if let Some(token) = res.headers.get::<AuthToken>() {
+        let body: TokenResponse = serde_json::from_str(&res_str).unwrap();
+        println!("{:?}", body);
+        Ok(Response::with((status::Ok, mime, modifiers::Header(token.clone()), serde_json::to_string(&body).unwrap())))
+    } else {
+        let err = json_object::Error { description: "invalid username or password".to_string() };
+        Ok(Response::with((status::Unauthorized, mime, serde_json::to_string(&err).unwrap())))
+    }
 }

@@ -11,11 +11,15 @@ extern crate serde_json;
 use iron::prelude::*;
 use iron::status;
 use iron::mime::Mime;
+
 use iron_pipeline::prelude::*;
 use iron_pipeline::{Middleware, PipelineNext};
+
 use router::Router;
 
 mod handler;
+mod json_object;
+
 
 struct Logging;
 impl Middleware for Logging {
