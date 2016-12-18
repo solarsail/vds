@@ -1,4 +1,5 @@
 #![feature(proc_macro)]
+#![feature(custom_attribute)]
 extern crate iron;
 extern crate iron_pipeline;
 extern crate router;
@@ -10,7 +11,6 @@ extern crate serde_json;
 
 use iron::prelude::*;
 use iron::status;
-use iron::mime::Mime;
 
 use iron_pipeline::prelude::*;
 use iron_pipeline::{Middleware, PipelineNext};
@@ -19,6 +19,7 @@ use router::Router;
 
 mod handler;
 mod json_object;
+mod http_object;
 
 
 struct Logging;
@@ -48,32 +49,12 @@ impl Middleware for NotFound {
 	}
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct OverviewData {
-	vcpu_total: u32,
-	vcpu_in_use: u32,
-	ram_total: u32,
-	ram_in_use: u32,
-}
-
-fn overview(_: &mut Request) -> IronResult<Response> {
-	let data = OverviewData {
-		vcpu_total: 8,
-		vcpu_in_use: 4,
-		ram_total: 32,
-		ram_in_use: 4,
-	};
-
-	let m: Mime = "application/json".parse().unwrap();
-	Ok(Response::with((status::Ok, m, serde_json::to_string(&data).unwrap())))
-}
-
 fn main() {
     let mut pipeline = Pipeline::new();
 
     let mut router = Router::new();
-    router.get("/overview", overview, "overview");
-    router.post("/token", handler::identity::login, "token");
+    router.get("/usage/:project_id", handler::compute::usage, "usage");
+    router.post("/token", handler::identity::token, "token");
 
     pipeline.add(Logging);
     pipeline.add(NotFound);
