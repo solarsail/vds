@@ -3,8 +3,6 @@ use std::io::Read;
 use iron::prelude::*;
 use iron::modifiers;
 
-use hyper::Client;
-
 use iron::status;
 
 use serde_json;
@@ -12,6 +10,7 @@ use serde_json::Value;
 
 use json_object;
 use http_object;
+use resource;
 
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,17 +48,14 @@ pub fn token(req: &mut Request) -> IronResult<Response> {
         }
     };
 
-    let mut res = Client::new()
-                   .post("http://192.168.1.21:5000/v3/auth/tokens")
-                   .body(&serde_json::to_string(&token_req).unwrap())
-                   .send().unwrap();
+    let resource = resource::Resource::new("http://192.168.1.51:5000/v3/auth/tokens");
+    let reply = resource.post(&serde_json::to_string(&token_req).unwrap()).unwrap();
     let mime = http_object::json_mime();
-    let mut res_str = String::new();
-    res.read_to_string(&mut res_str).unwrap();
-    if let Some(token) = res.headers.get::<http_object::SubjectToken>() {
-        let body: TokenResponse = serde_json::from_str(&res_str).unwrap();
+
+    if let Some(token) = reply.token {
+        let body: TokenResponse = serde_json::from_str(&reply.content).unwrap();
         println!("{:?}", body);
-        Ok(Response::with((status::Ok, mime, modifiers::Header(token.clone()), serde_json::to_string(&body).unwrap())))
+        Ok(Response::with((status::Ok, mime, modifiers::Header(http_object::SubjectToken(token)), serde_json::to_string(&body).unwrap())))
     } else {
         let err = json_object::Error { description: "invalid username or password".to_string() };
         Ok(Response::with((status::Unauthorized, mime, serde_json::to_string(&err).unwrap())))
